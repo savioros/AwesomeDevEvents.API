@@ -2,6 +2,7 @@
 using AwesomeDevEvents.API.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AwesomeDevEvents.API.Controllers
 {
@@ -26,7 +27,9 @@ namespace AwesomeDevEvents.API.Controllers
         [HttpGet("{id}")]
         public IActionResult GetById(Guid id)
         {
-            var devEvent = _context.DevEvents.SingleOrDefault(d => d.Id == id);
+            var devEvent = _context.DevEvents
+                .Include(de => de.Speakers)
+                .SingleOrDefault(d => d.Id == id);
             
             if(devEvent == null) return NotFound();
 
@@ -37,6 +40,8 @@ namespace AwesomeDevEvents.API.Controllers
         public IActionResult Post(DevEvent devEvent)
         {
             _context.DevEvents.Add(devEvent);
+            _context.SaveChanges();
+
             return CreatedAtAction(nameof(GetById), new { id =  devEvent.Id }, devEvent);
         }
 
@@ -48,7 +53,10 @@ namespace AwesomeDevEvents.API.Controllers
             if (devEvent == null) return NotFound();
 
             devEvent.Update(input.Title, input.Description, input.StartDate, input.EndDate);
-        
+
+            _context.DevEvents.Update(devEvent);
+            _context.SaveChanges();
+
             return NoContent();
         }
 
@@ -61,17 +69,22 @@ namespace AwesomeDevEvents.API.Controllers
 
             devEvent.Delete();
 
+            _context.SaveChanges();
+
             return NoContent();
         }
 
         [HttpPost("{id}/speakers")]
         public IActionResult PostSpeaker(Guid id, DevEventSpeaker speaker)
         {
-            var devEvent = _context.DevEvents.SingleOrDefault(d => d.Id == id);
+            speaker.DevEventId = id;
 
-            if (devEvent == null) return NotFound();
+            var devEvent = _context.DevEvents.Any(d => d.Id == id);
 
-            devEvent.Speakers.Add(speaker);
+            if (!devEvent) return NotFound();
+
+            _context.DevEventSpeaker.Add(speaker);
+            _context.SaveChanges();
 
             return NoContent();
         }
